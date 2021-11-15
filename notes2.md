@@ -822,3 +822,378 @@ Instead we use **TLB reach**: the amount of memory accessible from TLB
 
 - Ideally the working set is stored in TLB otherwise the process will spend a considerable amount of time resolving memory references to the page table
 - TLB reach can also be increased by increasing the page size, but this can lead to fragmentation
+
+# Mass Storage Structure
+
+## Overview
+
+### Hard Disk Drives
+
+Each disk **platter** has magnetic material divided into circular **tracks** that are subdivided into **sectors**. Sets of tracks at a given arm position make up a **cylinder**. Read/write head flies above each platter and are attached to a **disk arm** that moves all heads
+
+Disks rotate at an extremely fast rate. 
+
+- **Transfer rate** is the rate at which data flows between the disk drive and the computer
+- **Random-access time**: time necessary to move disk arm to the cylinder (**seek time**) and time to rotate disk head to desired sector (**rotational latency**)
+
+Since disk head flies on such a thin layer, the head can damage the disk surface, resulting in **head crashes**. Cannot be repaired, disk must be replaced
+
+### Nonvolatile Memory Devices
+
+Devices composed of a controller and a flash NAND semiconductor chip used to store data
+
+- **Solid-state disk (SSD)**: flash-memory-based NVM in a disk-drive container
+- **USB drive**
+
+NVM devices don't have moving parts and are thus faster since there is no seek time or rational latency but are more expensive to use and have less capacity
+
+NAND semi conductor data is read and writte in page increments and cannot be overwritten; NAND cells have to be erased first so we need algorithms to deal with NAND semi conductors
+
+**NAND Flash Controller Algorithms**: typical scenario is that some pages contain old/invalid data. Device controller maintains a **flash translation layer (FTL)** that maps which physical pages contain valid logical blocks and which blocks contain invalid pages (and can be erased)
+
+When writing to full SSD, we might need to **garbage collect** invalid pages to create more room for new pages
+
+### Volatile Memory
+
+**RAM Drives (DRAM)**: used as a highspeed temporary mass-storage device for safekeeping
+
+### Secondary Storage Connection Methods
+
+Secondary storage devices typically attached to a computer through a bus, typically **serial ATA (SATA)**
+
+Data transfers on bus are carried out by **controllers**. 
+
+- **Host controller** is the controller at the computer end of the bus
+- **Device controller** is built into eaach storage device
+
+Typical I/O operation involves the computer placing a command into the host controll who then sends the command to the device controller who then operates the drive hardware
+
+### Address Mapping
+
+Storage devices are addressed as an arrays of **logical blocks** (smallest unit of transfer)
+
+- Each logical block maps to a physical sector or semiconductor page
+- The array itself is also mapped onto the sectors or pages of the device
+
+TODO FINISH THIS P456
+
+## HDD Scheduling
+
+Want to optimize:
+
+- **Access time**: seek time and rotational latency
+
+- **Device bandwidth**: number of bytes transferred divided by the total time between the first request and the comopletion of the last transfer
+
+Optimization is done by managing the order in which storage I/O requests are serviced. When a process needs I/O, a system call is issued that contains
+
+- If operation is input or output
+- Open file handling indicating the file to operate on
+- Memory address for the transfer
+- Amount of data to transfer
+
+If the desired drive and controller are available, the request is serviced. Otherwise the request is added to a queue (helpful to optimize head seeks)
+
+Sequential I/O access is optimal since HDD is read linearly
+
+Random-access I/O causes HDD disk head movement
+
+### FCFS Scheduling
+
+Not optimal since order of requests may require a lot of unnecessary seeks
+
+### SCAN Scheduling
+
+**SCAN algorithm**: start at one end of the disk and move to the other end, servicing requests at each cyliner, until it reaches the other end of the disk. Then the head moves in the reverse direction
+
+Issue is once we reach one side, there are relatively few requests immediately in front of the head
+
+### C-Scan Scheduling
+
+Variant of SCAN that still moves the head from one end of the disk to the other but this time when the head reaches the other end, it immediately returns to the beginning of the disk
+
+### Selecting Disk Scheduling Algorithm
+
+If there's only a sparse load, any scheduling algorithm will have similar efficiency. SCAN and C-SCAN perform better for systems with heavy load on disk
+
+## NVM Scheduling
+
+Uses FCFS policy since we don't need to move disk heads
+
+Writing to NVM is slower than reading.
+
+## Error Detection and Correction
+
+Goal is for the system to halt operation before an error ir propagated. Typically use a parity bit. Examples include **checksums** and **cyclic redundancy check (CRCs)**
+
+**Error correction code (ECC)**: detects the problem and corrects it using algorithms and extra storage
+
+## Storage Device Management
+
+### Drive Formatting, Partitions, and Volumes
+
+Since new storage devices are a blank slate, **low-level formatting** occurs where NVM pages are initialized and the FTL is created
+
+To use a drive to hold files, the operating system needs to record its own data structures on it
+
+- **Partition** device into groups of blocks, treating each partition as a separate device
+
+  - contains information if the partition is **bootable** (contains the operating system)
+  - once the bootable partition is loaded, device links for all other devices can be created
+
+- Volume creation and mangement: create volume to be mounted and used
+- **Logical formatting**: store file-system data structures that map free and allocated space
+
+Groups of blockers are sometimes chunked into **clusteres** for specific devices
+
+### Boot Block
+
+**Bootstrap looader** contains an initial program to run for powering up (usually stored in NVM flash) and can bring up full bootstrap programs from secondary storage
+
+### Bad Blocks
+
+Since disks have lots of moving parts, failures can occur and the disk must be replaced or specific sectors become defective, resutling in **bad blocks**. Few options exist
+
+- Scan the disk to find bad blocks and flag them as unusable
+- **sector sparing**: Have the controller maintain a list of bad blocks and logically replaces them with a spare sector 
+- **Sector slipping**: suppose logical block $17$ becomes defective and the first spare is sector $202$. Then we shift sector $201$ into $202$, $\ldots$, $18$ into $19, $17$ into $18$
+
+**Soft errors** may trigger one of the solutions above. 
+
+**Hard error** results in lost data and whatever file was using that block must be repaired
+
+## Swap-Space Management
+
+Use swap space as an extension of main memory for virtual memory
+
+### Swap-Space Use
+
+Swap space can hold entire process images or pages pushed out of main memory.
+
+### Swap-Space Location
+
+Can either be carved out of the normal file system or in a separate partition
+
+It can also be created in a separate **raw partition** that has no file system or directory structure in this space. A swap-space manager allocates and deallocates blocks from raw partition
+
+## Storage Attachment
+
+Computers access secondary storage via
+
+- host-attached storage: storage is access through local I/O ports
+- network attached storage: Storage provided by a computer system across a network
+- cloud storage
+
+## RAID Structure
+
+Since storage devices are becoming more accessible, we can use a large number of drivers to parallelize read/writes and improve data storage reliability by storing data across multiple drives
+
+### Use of Redundancy
+
+**Mean Time Between Failures (MTBF)** is the measurement here
+
+Introduce **redundancy** where we store extra information across multiple drives that can be used to rebuild lost information when a disk failure occurs
+
+- **Mirroring**: logical disk consists of 2 physical drives and every write is carried out on both drives. If one fails, data can be read from the other
+
+  - MTBF depends on MTBF of each individual drive and **mean time to repair**
+
+### Use of Parallelism
+
+With mirroring, we can double the rate at which read requests are handled
+
+Can also use **data striping** where we split the bits of each byte across multiple drives (**bit-level striping**)
+
+- Can be generalized to **block-level striping**
+- Parallelism increases throughput of multiple small accesses by load balancing and reduces response time of large access
+
+### Raid Levels
+
+Mirroring provides high reliability but is expensive. 
+
+Striping provides high data-transfer rates but doesn't improve reliability
+
+**RAID 0**: drive arrays with block striping without any redundancy (performance)
+
+**RAID 1**: drive mirroring (reliability)
+
+**RAID 0 + 1**: drives are striped and then the stripe is mirrored
+
+**RAID 4**: uses memory-style ECC organization
+
+- Results of the Nth block is stored in drive $N$. Error correction calculation is stored in drive $N+1$. If a drive fails, ECC recalculation detects it and prevents data from being passed into the requesting process
+
+### Selecting RAID Level
+
+One measurement is rebuild performance: if a drive fails, how long does it take to rebuilt the data
+
+- Rebuilding is easiest for RAID 1 since data can be copied from another drive
+
+RAID 0 is for high-performance applications where data loss is not critical
+
+# I/O Systems
+
+## Overview
+
+Various methods needed to control I/O devices create an I/O subsystem of the kernel that separates the kernel from the complexities of managing I/O devices
+
+I/O device technology has 2 conflicting trends 
+
+- Increase in standardization of software and hardware interface to help integrate new devices into exisiting computers
+- Increase in broad variety of I/O devices
+
+**Device drivers** present a uniform device-access interface to the I/O subsystem
+
+## I/O Hardware
+
+**Port**: connection point for devices to communicate with the computer system using signals
+
+**Bus**: connection between devices involving wires
+
+- **PCIe bus**: connects processor memory subsystem to fast devices. Sends data over lanes composed of 2 signaling pairs (receiving and transmitting ends)
+
+- **expansion bus**: connects slow devices (e.g. keyboard) to system
+
+**Daisy change**: device $A$ has a cable that plugs into device $B$ that has a cable taht plugs into device $C$ that plugs into a port on the computer
+
+**Controller**: collection of electronics that operate a port, bus, or device
+
+### Memory-Mapped I/O
+
+Processor sends commands to a controller through registers
+
+- Use special I/O instructions that specify the transfer of a word to an I/O port address. This instruction triggers bus lines to select the device and move bits into or out of a device register
+- **Memory--mapped I/O**: device-control registers are mapped into the address space of the processor. CPU read and write to these registers
+
+Typical device control registers are
+
+- **data-in register**: read by host to get input
+- **data-out register**: written by host to send output
+- **status register**: has bits read by host that indicate state (command has completed or device has errored)
+- **control register**: written by host to start a command or change mode of a device
+
+### Polling
+
+Host and controller do a handshake when they want to interact
+
+- Controller sets busy bit of status register when it is doing work and sets clear bit when it is ready for the next command
+- Host sets command-ready bit when a command is available
+
+Example scenario
+
+- Host repeatdely reads busy bit until it becomes clear
+- Host sets write bit in the command register and writes byte into data-out register
+- Controller notices command-ready bit is set and setse the busy bit
+- Controller reads the command register and sees the write command, and reads from the data-out register and does I/O to the device
+- controller clears the command-ready bit and clears the error bit int he status register to signify I/O succeeded. Then it clears the busy bit
+
+Step 1 involves **busy-waiting (polling)**. To get around this, we use **interrupts** to notify CPU when the I/O has completed, rather than using polling
+
+### Interrupts
+
+CPU hardware maintains the **interrupt-request line** that the CPU checks after each instruction. If a signal is detected, the CPU saves the current state and jumps to the **interrupt-handler routine** and handles the interrupt. Afterwards, the CPU performs a state restore and returns to the original instruction
+
+- Device controller **raises** interrupt
+- CPU **catches** interrupt and **dispatches** it to the interrupt handler
+- handler **clears** the interrupt by servicing the device
+
+**Interrupt-controller hardware** provides additional features
+
+- 2 interrupt request liens: **nonmaskable** and **maskable**
+- Interrupt mechanism accepts an address of the interrupt-handling routine. This is stored in an **interrupt vector**. This may involve **interrupt chaining**
+- Interrupts have **interrupt priority levels**
+
+### Direct Memory Access
+
+**Programmed I/O (PIO)**: feeding data into a controller register one byte at a time
+
+Don't want to burden the main CPU with PIO so we instead offload some of the work into **direct memorya ccess (DMA)** controller
+
+- Host writes a DMA command block into memory which contains a pointer to the source and destination of transfer and the number of bytes to transfer.
+
+## Application I/O Interface
+
+Want to abstract differences in I/O devices by identifying a few general kinds whcih can be accesed through an **interface**
+
+Device-driver layer hides the differences between device controllers from the I/O subsystem, simplifying the job of the developer
+
+Main device categories: block I/O, character-stream I/O, memory-mapped file access, and network sockets
+
+### Block and Character Devices
+
+**Block-device interface** captures all aspects for accessing disk drivers and other block-oriented devices
+
+- Understand `read()` and `write()` and `seek()` (for random-access device)
+
+**Character-stream interface** captures characters using `get()` or `put()`
+
+### network Devices
+
+Typically uses a network **socket** interface that connect to a remote address and listen, send, or receive from it
+
+### Clocks and Timers
+
+TODO FINISH LATER
+
+### Nonblocking and Aysnc I/O
+
+TODO FINISH LATER
+
+### Vectored I/O
+
+TODO FINISH LATER
+
+## Kernel I/O Subsystem
+
+Kernel I/O subsystem provides several services
+
+### I/O Scheduling
+
+Determining good order to execute I/O requests by using a wait queue and reording the queue to improve system efficiency
+
+### Buffering
+
+**Buffer**: memory area to store data being transferred between 2 devices. Used to
+- cope with speed mismatch of producer and consumer
+- provide adaptations for devices with different data-transfer sizes
+- support copy semantics for application I/O where version of data written to disk is guaranteed to be version at the time of the application system call
+
+### Caching
+
+Cache copy of data for faster access
+
+Differs from buffer since buffer may hold the only instace of a data item
+
+### Error Handling
+
+I/O system call will return one bit of information of the status of the call (success or failure)
+
+### I/O Protection
+
+Define all I/O instructions as privileged instructions to prevent malicious user. User must do I/O through system call
+
+Any memory-mapped and I/O port memory must be protected from user for the same reason
+
+### Kernel Data Structures
+
+Kernel maintains information about I/O components
+
+- open-file table
+
+## Transforming I/O Requests to Hardware Operations
+
+Lifecycle for a blocking read
+
+1. Process issues blocking `read()` system call to a file descriptor
+2. Kernel checks parameters for system call. If data exists in cache, we are done
+3. Otherwise physical I/O is performed.
+
+    - Current process is removed from run queue and is put in a wait queue for the device
+    - I/O request is scheduled and sent to device driver
+4. Device driver allocates kernel buffer space to receive data and schedules the I/O, sending the command to the device controller by using the device-control registers
+5. Device controller operates on device hardware
+6. Driver polls for status and data. Geneartes an interrupt once the transfer completes
+7. Interrupt handler receives the interrupt, stores any necessary data, signals the device driver, and returns from the interrupt
+8. Device driver receives the signal, notes taht the I/O request is complete, and signal kernel I/O subsystem the completion of the request
+9. Kernel transfers data to the address space of the requesting process and moves process back to ready queue
+10. Process is now unblocked and waits for the scheduler to assign the process to the CPU
