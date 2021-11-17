@@ -931,14 +931,3 @@ signal(semaphore *S) {
 - For single processor environment, we can just disable interrupts during the critical section
 - For multicore environment, we must disable interrupts on every processing core (this is costly)
 
-# Virtual Memory
-
-Benefits of Virtual Memory
-
-- User can write programs for extremely large virtual address space
-
-- More programs can be run at the same time, increasing CPU utilization
-
-- Sharing libraries or memory between processes
-
-**Virtual memory** separates logical memory from physical memory
