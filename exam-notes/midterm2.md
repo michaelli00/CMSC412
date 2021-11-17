@@ -100,7 +100,7 @@ Let **Work** be an $m$ array and assigned Available. Let **Finish** be an $n$ ar
 
 Let **Request_i** be the request an $m$ array for $P_i$
 
-1. If `Request_i <= Need_i`goto step 2. Otherewise raise an error since process is exceeding maximum claim
+1. If `Request_i <= Need_i` goto step 2. Otherewise raise an error since process is exceeding maximum claim
 2. If `Request_i <= Available` goto step 3. Otherwise $P_i$ has to wait
 3. Pretend to allocate resources to $P_i$
 
@@ -195,13 +195,13 @@ Process execution consists of swapping between **CPU burst cycles** and **I/O bu
 
 ### Thread Scheduling
 
-Only kernel threads can be scheduled. User threads are managed by thread library and are mapped to a kernel level thread (through LWP)
+Only kernel threads can be scheduled. User threads are managed by thread library and are mapped to a kernel level thread (LWP)
 
 - **Process contention scope**: user threads within the same process for kernel threads in many-to-many or many-to-one models
 
   - Scheduler can preempt threads based on priority given by programmer
 
-- **System contention scope**: kernel threads compete with other all threads in the system for CPU time (one-to-oone model)
+- **System contention scope**: kernel threads compete with other all threads in the system for CPU time (one-to-one model)
 
 ### Multi-Processor Sharing
 
@@ -334,9 +334,9 @@ Various binding types:
 
 **Multiple-partition allocation**: create **variable-partition** sizes based on process' needs
 
-- Can lead to **holes**: blocks of available memory in memory
+- Creates **holes**: blocks of available memory in memory
 
-Main memory is split into 2 partitions
+main memory is split into 2 partitions
 
 - User processes in high memory. 
 - Operating system processes in low memory
@@ -372,6 +372,14 @@ Page table used for lookup and translation (page number, page offset) and is sto
   - Stores page number and corresponding frame number
   - Can also store **Address Page Identifiers (ASIDs)**: to identify each process for address space protection
   - On TLB miss, value is loaded into TLB. Need to consider replacement policies and some entries are **wired down**
+
+**Effective Access Time (EAT)**
+
+- **Associative Lookup**: $\epsilon$ time unit
+- **Hit Ratio**: $\alpha$ percentage of times that a page is found in the register
+- Example: let $\alpha = 0.80, \epsilon = 20$ns, and $100$ns memory access time
+
+    Then EAT = $0.80 * 100 + 0.20 * 2 * 100 = 120$ns
 
 Memory protection by storing a **valid-invalid** bit to each entry in the page table
 
@@ -421,6 +429,185 @@ Process can be swapped from memory to a **backing store**
 
 ![Page Swapping](../assets/page-swapping.png){ height=200px}
 
+## Virtual Memory
+
+Code needs to be in memory to be executed, but entire program is rarely used
+
+- If we could partially load programs, could have more programs loaded into memory, increasing CPU utilization and throughput
+
+**Virtual Memory**: separation of user logical memory from physical memory
+
+- since only part of program needs to be in memory, logical address space can be larger than physical address space
+- virtual address space usually viewed as contiguous address starting at $0$. Physical memory organized as frames
+- MMU maps logical addresses to physical addresses
+
+Virtual address space leaves a **hole** between stack (growing down) and heap (growing up) for dynamically linked libraries
+
+- Pages can be shared during `fork()` to speed up process creation
+
+### Paging
+
+Can use **page swapping** to move pages in and out of main memory for execution
+
+**Demand paging** is used to only bring in page into memory when it is needed
+
+- Less I/O needed and no unnecessary I/O
+- Less memory needed allowing for higher degree of multiprogramming
+- On the page table, each page entry is given a valid or invalid bit. When a page is needed
+  - invalid reference $\implies$ abort process
+  - in-memory $\implies$ nothing todo
+  - not-in-memory $\implies$ bring it into memory (**page fault**)
+- **Lazy swapper**: never swap a page into memory unless the page is needed
+
+**Page fault**: reference to a page not in memory. Results in a trap to the operating system to find frame and swap page into memory
+
+- Once page is in memory, instruction that caused page fault is restarted
+- Main question of how far to rollback instructions (need to be in a safe state)
+- **Pure demand paging**: there are no pages in memory so we first few page accesses result in page faults. One solution
+
+  - **Locality of reference**: can load multiple pages in the same locality at the same time to reduce page faults
+
+- **Prepaging**: prepage some pages the process may need to reduce page faults
+- **TLB Reach**: amount of memory accessible from TLB = (TLB Size) * (Page Size)
+
+  - Ideally working set of each process is stored in TLB (otherwise high degree of page faults)
+  - Can increase page size but leads to increase in fragmentation
+  - Can allow varying page sizes
+
+- **I/O Interlock**: pages sometimes locked into memory (**pinning** pages to memory)
+
+  
+
+![Page Fault](../assets/page-fault.png){ height=250px}
+
+**Effective Access Time (EAT)**: let $p$ be the page fault rate, then 
+
+&nbsp; &nbsp; EAT = $(1-p)$ * memory access + $p$(page fault overhead + swap out + swap in)
+
+
+Demand Paging Optimizations
+
+- Use **swap space** in memory, This space has faster I/O.
+
+  - Copy entire process image to here at load time then page in and out of swap space
+
+- **Copy-on-Write (COW)**: parent and child processes initially share the same page in memory
+
+  - If either process modifies the shared page, only then is the page copied
+  - Makes process creation more efficient
+
+### Page and Frame Replacement Algorithms
+
+**Page Replacement**: find some page in memory, hopefully not in use, and page it out. Want to minimize number of page faults
+
+- **dirty bit**: only need to write modified pages to disk. Non-modified pages can be discarded
+- General steps:
+
+  1. Find location of desired page on disk
+  2. Find free frame (use page replacement algorithm if needed to select **victim frame**)
+  3. Bring desired page into newly free frame and update page and frame tables
+  4. Restart instruction that caused the trap
+
+**First In First Out (FIFO)**: as you would expect
+
+- **Belady's Anomaly**: adding more frames can cause more page faults
+
+**Optimal Algorithm**: replace page that will not be used for the longest period of time
+
+- Although can't implement, it is used to test how well a page replacement algorithm works
+
+**Least Recently Used (LRU)**: replaces page that has not been used most recently. 2 ways of implementing
+
+- Counter: each page entry has a counter that is updated when the page is referenced. Page with smallest counter is removed
+- Stack: keep stack of page numbers. When page is referenced, it is moved to the top
+- LRU doesn't suffer from Belady's Anomaly
+- LRU requires special hardware and slow so we can speed it a bit
+
+  - **Reference bit**: each page has a bit set to $0$. When referenced, set bit to $1$. When replacing, we can choose entry with bit $0$
+  - **Second-Change Algorithm**: FIFO replacement scheme. When a page is selected
+    - If its reference bit is $0$, we replace the page
+    - If the reference bit is $1$, we clear the bit and give it a second chance (will come back to it later if we can't find a replacement)
+
+
+
+**Counting Algorithms**: keep counter of number of references made to each page
+
+- **Least Frequently Used (LFU)**: replaces page with smallest count
+- **Most Frequently Used (MFU)**: argument is the page with smallest count was just brought in and has yet to be used
+
+**Page-Buffering Algorithms**: always keep a pool of free frames so we don't have to wait to write victim to disk
+
+- Instead we read target page into free frame and evict victim when convenient
+
+**Frame-Allocation Algorithm**: determines how many frames to give each process
+
+- Each process needs a minimum number of frames. 2 major allocation schemes exist
+
+- **Fixed allocation**: each process given equal number of frames (some might be saved for free frame buffer pool)
+
+- **Priority allocation**: allocate frames based on size of process or some other priority
+
+Frame replacement policies:
+
+- **Global Replacement**: process selects a replacement frame from all possible frames (can take frame from another process)
+
+  - Greater throughput but process execution time can vary
+
+- **Local Replacement**: process can only select from its own set of frames
+
+  - Lower throughput but more consistent per-process performance
+
+### Non-Uniform Memory Access
+
+**NUMA**: speed of access to memory varies
+
+### Thrashing
+
+Process doesn't have "enough" pages, causing page fault rate to be very high
+
+- page fault replaces frame from another process, causing another page fault
+- leads to low CPU utilization, causing the system to think it needs to increase degree of multiprogramming and add another process
+- **Thrashing**: process is more busy swapping pages than doing actual work
+- Occurs because the size of locality is greater than total memory size
+
+### Working Set Model
+
+Uses a parameter $\Delta$ to define the **working-set window** where we only examine the most recent $\Delta$ page references (**working set**)
+
+- When a page is active, it will be in the working set
+- When a page is no longer being used, it is dropped from the working set $\Delta$ time units after its last reference
+- If working set is greater than number of pages in memory, causes thrashing
+
+Thus working-set model is an approximation of locality
+
+### Memory Mapped Files
+
+Memory-mapped file allows file I/O to be treated as routine memory by mapping a disk block to page in memory
+
+- File is read using demand paging
+- Simplifies and speeds file access by driving file I/O through memory
+
+### Allocating Kernel Memory
+
+Kernel memory needs to be contiguous for device I/O
+
+**Buddy System**: allocates memory of power of $2$
+
+- When a smaller allocation is needed, current chunk is split into 2 buddies of the next lower power of $2$
+- Advantage is that we can quickly **coalesce** unused chunks
+- Disadvantage is that it results in internal fragmentation
+
+**Slab Allocator**: collect several contiguous pages into a **slab**
+
+- **Cache** consists of one or more slabs and are used to store kernel data structures
+- When cache is created, it is filled with objects marked as free
+- As structures are stored, objects are marked as used
+- If slab is full of used objects, next object allocated from empty slab
+- Benefits are no fragmentation and fast memory request satisfaction
+
+![Slab Allocation](../assets/slab-allocation.png){ height=250px}
+
+
 ## Mass Storage
 
 Magnetic Disk (e.g. **Hard Disk Drive (HDD)**) is the primary secondary storage type
@@ -434,9 +621,9 @@ Magnetic Disk (e.g. **Hard Disk Drive (HDD)**) is the primary secondary storage 
 ![Hard Disk](../assets/disk.png){ height=200px}
 
 - **Access Latency**: average access time which is (average seek time + average rotational latency)
-- **Average I/O Time**: (average access time + (amount to transfer / transfer rate) + overhead)
+- **Average I/O Time**: (average access time + (amount to transfer / transfer rate) + controller overhead)
 
-**Example**: $4$KB block, $7200$ RPM, $5$ms seek time, $1$Gb/sec transfer rate, $0.1$ms overhead
+**Example**: $4$KB block, $7200$ RPM, $5$ms seek time, $1$Gb/sec transfer rate, $0.1$ms controller overhead
 
 - Access I/O = $5$ms + $(60/7200 * 0.5 * 1000)$ms + $(4$KB / $1$Gb/s * $8$Gb/GB * $1$GB/$(1024)^2$ KB)ms + $0.1$ms = $9.301$ms
 
@@ -509,7 +696,7 @@ To hold files, operating system needs to **partition** disk into multiple groups
 
 - **Bootstrap looader** contains an initial program to run for powering up and stored in boot block of boot partition
 
-Since disks have lots of moving parts, failures can occur and the disk must be replaced or specific sectors become defective, resutling in **bad blocks**.
+Since disks have lots of moving parts, failures can occur and the disk must be replaced or specific sectors become defective, resulting in **bad blocks**.
 
 - **sector sparing**: Have the controller maintain a list of bad blocks and logically replaces them with a spare sector 
 
@@ -544,6 +731,108 @@ Can also use **data striping** where we split the bits of each byte across multi
 - **RAID 0** uses striping
 - Block interleaved parity (**RAID 4, 5, 6**) uses much less redundancy
 
+## I/O Management
+
+Port, busses, and device controllers are used to connect to various devices
+
+**Device driver** encapsulates device details and provides a uniform device-access interface to I/O subsystem
+
+- Device drivers place or read commands and data into or from device registers
+- Direct I/O instructions access devices at addresses
+- **Memory-mapped I/O**: device data and command registers mapped to processor address space
+
+
+### Polling 
+Host and controller do a handshake when they want to interact
+
+- Controller sets busy bit of status register when it is doing work and sets clear bit when it is ready for the next command
+- Host sets command-ready bit when a command is available
+
+Example scenario
+
+- Host repeatdely reads busy bit until it becomes clear
+- Host sets write bit in the command register and writes byte into data-out register
+- Controller notices command-ready bit is set and setse the busy bit
+- Controller reads the command register and sees the write command, and reads from the data-out register and does I/O to the device
+- controller clears the command-ready bit and clears the error bit in the status register to signify I/O succeeded. Then it clears the busy bit
+
+Step 1 involves **busy-waiting (polling)**. To get around this, we use **interrupts** to notify CPU when the I/O has completed, rather than using polling
+
+### Interrupts
+
+CPU manages **interrupt-request line** that is checked every instruction
+
+**Interrupt handler** receives interrupts and handles them
+
+Interrupts can be **maskable** or **nonmaskable** and can be given a priority
+
+### Direct Memory Access
+
+Used to avoid **programmed I/O** (one byte at a time) for large data movement
+
+- Bypasses CPU to transfer data directly between I/O device and memory
+
+- Don't want to burden the main CPU with PIO so we instead offload some of the work into **direct memory access (DMA)** controller
+
+- Host writes a DMA command block into memory which contains a pointer to the source and destination of transfer and the number of bytes to transfer.
+
+### Application I/O Interface
+
+I/O system calls encapsulate device behaviors
+
+Device driver hides differences between I/O controllers from kernel
+
+I/O devices can be grouped into
+
+- Block I/O
+- Character I/O (stream)
+- Memory-mapped file access
+- Network sockets
+
+
+### Synchronous and Asynchronous I/O
+
+**Blocking**: process suspended until I/O completed
+
+**Nonblocking**: I/O call returns as much as available
+
+**Asynchronous**: process runs whil I/O executes
+
+![Synchronous and Asynchronous Blocking](../assets/sync-async-blocking.png){ height=200px}
+
+### Vectored I/O
+
+Allows one system call to perform multiple I/O operations
+
+### Kernel I/O Subsystem
+
+**Buffering**: store data in memory while transferring between devices
+
+- Used to cope between device speed mismatches or device transfer size mismatches
+- **Double buffering**: 2 copies of the data
+
+**Caching**: faster device holding copy of data
+
+**Spooling**: hold output for a device
+
+**Device Reservation**: provides exclusive access to device
+
+All I/O instructions defined as privileged to prevent malicious user access
+
+### Kernel Data Structures
+
+Kernel maintains state info of I/O components, open file tables, network connections
+
+### I/O Lifecycle
+
+Consider reading a file from disk for a process
+
+- Determine target device with file
+- Translate name to device representation
+- Read data from disk into buffer
+- Make data available to requesting process
+- Return control to process
+
 ## Per-CPU Variables
 
 For GeekOS, normal process to get per process info is
@@ -553,8 +842,13 @@ For GeekOS, normal process to get per process info is
 3. use processor id to access global table
 4. reenable preemption/interrupts
 
-Suppose a processor ahs a memory area to itself, then per processor info can be stored there and accessed efficiently
+Suppose a processor has a memory area to itself, then per processor info can be stored there and accessed efficiently
 
 - If the entire operation is one instruction then we don't need to disable preemption
 - concurrent access to this area is not possible since per-cpu area is not accessible to other processors
 - We use `fs` or `gs` segments to accomplish this
+
+Segments are loaded into processors as indexes into **Global Descriptor Table (GDT)**. The GDT is a per-processor data structure shared by all processors
+
+- To make per-cpu work, need to switch to per-cpu GDTs that are identical except for segment descriptor at a particular index
+- Each user process has an entry in GDT that refers to its **Local Desceriptor Table (LDT)** and defines `cs`, `ds`, `ss`, `es`, `fs`, `gs` for the user process
