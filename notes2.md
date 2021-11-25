@@ -1107,7 +1107,7 @@ CPU hardware maintains the **interrupt-request line** that the CPU checks after 
 
 **Programmed I/O (PIO)**: feeding data into a controller register one byte at a time
 
-Don't want to burden the main CPU with PIO so we instead offload some of the work into **direct memorya ccess (DMA)** controller
+Don't want to burden the main CPU with PIO so we instead offload some of the work into **direct memory access (DMA)** controller
 
 - Host writes a DMA command block into memory which contains a pointer to the source and destination of transfer and the number of bytes to transfer.
 
