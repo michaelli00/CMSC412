@@ -409,3 +409,175 @@ Computer system needs to ensure that a system crash doesn't cause inconsistencie
 - Snapshots are used as a fallback if the system crashes
 
 **Backup/Restore**: back up data to a storage device. On crash, restore data from back up
+
+# Network and Distributed Systems
+
+**Distributed System**: collection of processors that each have their own local memory and don't share memory
+
+- Nodes are connected via a network
+- Messages are passed between systems across the network
+
+## Benefits of Distributed Systems
+
+- **Resource Sharing**: can share files between remote sites
+- **Computation Speedup**: Can run subcomputations concurrently
+
+  - Might require **load balancing** by routing requests to another node
+
+- **Reliability**: if one site fails, the remaining sites can still operate
+
+## Network Structure
+
+**Local Area Network (LAN)**: hosts are distributed over a small area
+
+**Wide Area Network (WAN)**: system is distributed over a large area
+
+## Communication Structure
+
+Processes on remote systems are identified using `<hostname, identifier>`
+
+To resolve a host name into a host-id for the computer to read, 2 options can be used
+
+- Every host holds a data file with all mappings of reachable hosts on the network. Main issue with is that it isn't scalable for nodes leaving and entering the network
+- Distribute information among systems on the network (e.g. DNS)
+
+**Note**: operating system is responsible for accepting outgoing messages to `<hostname, identifier`. The Kernel of the destination host is responsible for transferring messages to the appropriate process
+
+Communication between systems is handled in layers (e.g. OSI Layer)
+
+- Each layer communicates with the equivalent layer on the other system
+- Each layer has its own protocols
+
+## Network and Distributed Systems
+
+**Network Operating System**: provides an environment for users to access remote resources. There are 3 ways of doing this
+
+- **Remote Login** (e.g. ssh) to access remote machine
+
+  - Creates a bidirectional link to the resource.
+
+- **Remote File Transfer**: each computer maintains its own local file system. To share a file, it must be copied explicitly from the source to the destination system
+
+  - Creates a unidirectional link to the resource
+
+- **Cloud Storage**: upload and download files from a cloud service
+
+**Distributed Operating System**: users access remote resources they access local resources
+
+- **Data Migration**: transfer a file from site B to site A. Then the file can be accessed locally on site A. Any changes are written back to site B. 2 ways of doing this
+
+  - Transfer the entire file
+  - Transfer only parts of the file site A needs. This may require multiple requests
+
+- **Computation Migration**: goal is to do computation locally and send a message with the result of the computation
+
+- Process P executes a remote procedure call on site A and retrieves the result
+- Process P sends a message to site A and the operating system on site A creates a new process Q to carry out the task and sends the result to process P via messaging system
+
+**Process Migration**: parts of a process might be executed at different site. Variety of benefits
+
+- load balancing, computational speedup, hardware preference, software preference, data access
+
+2 main approaches
+
+- System hides process migration from the client
+- Allow users to specify explicitly how processes should be migrated
+
+## Distributed System Design Issues
+
+**Robustness**: need to be able to detect failures and be **fault tolerant** (can continue to function even when failures occur)
+
+- Failure detection done using **heartbeat procedure** where a alive messages are sent between sites periodically
+
+**Transparency**: distributed system should look like a normal centralized system to the user
+  
+  - Local and remote resources are accessed similarly
+
+**Scalability**: system can adapt to an increase in service load
+
+## Distributed File System (DFS)
+
+**Server**: software entity that provides clients a service
+
+**Client**: process that invokes services of the server
+
+File system provides file services to clients
+
+Distributed file system provides file services to distributed clients
+
+  - Servers provide services across the network
+  - Appears as a centralized file system to clients
+
+2 main models:
+
+- **Client Service DFS Model**: servers store files and clients connect to the server to make request for files
+- **Cluster Based Model**: clients connect via the network to a **master metadata server** and several data servers that hold chunks of files
+
+  - The metadata server stores mappings of chunks of files to data servers
+  - Each file chunk is replicated across multiple file servers for reliability
+  - To access a file, the client contacts the metadata server and goes to the closet data server to request for a file chunk
+  - Reduces performance bottleneck since file chunks are replicated
+
+## DFS Naming and Transparency
+
+**Naming**: maps between local and physical objects
+
+Transparent DFS adds another layer of abstractions: where the file is located
+
+2 types of naming structures
+
+- **Location transparency**: name of file doesn't reveal the file location
+- **Location Independence**: name of the file doesn't need to be changed when storage location changes
+
+**Naming Schemes**
+
+- hostname + local name
+- **Network File System (NFS)**: attach remote directories to local directories, creating a directory tree
+
+## Remote File Access
+
+**Remote Service Mechanism**: requests are delivered to the server and results are forwarded to the user (RPC paradigm)
+
+**Caching** is used to improve performance
+
+- Copy of the data is given to the client
+- When cached data is changed, need to update the master copy on the server (**cache consistency**)
+- Cache can be stored on disk (more reliable) or in main memory (faster access)
+
+# Virtual Machine
+
+**Virtual Machine**: abstracts hardware on a computer into several different execution environments, each one treated as though it is running on a private computer
+
+- **Host**: underlying hardware system that runs the VM
+- **Virtual Machine Manager (VMM)**: creates VMs by providing an interface identical to the host
+- **Guest**: process that is provided a virtual copy of the host
+
+Advantages of VM
+
+1. Host system is protected from VMs so VMs in guest operating systems don't affect other guests or host. Similar idea for protection, don't need to worry about it since systems are isolated
+
+  - Small issue of not being able to share resources. Can get around this by using message passing
+2. VMM provides **snapshots** of a host to the guest who then creates a **clone** and **resumes** or **suspends** the VM
+3. **Consolidation**: allows multiple operating systems to run on the same workstation
+
+![Trap and Emulation](./assets/trap-emulation.png){ height=200px}
+
+## Building Blocks
+
+**Virtual CPU (VCPU)**: represents the state of the CPU as the guest machine believes it to be (similar to PCB)
+
+- VMM maintains VCPU. When the guest context switches onto the CPU, information on the VCPU is used to load the current context
+
+**Trap and Emulation**: guest may be in **virtual user mode** or **virtual kernel mode**. Both of these run in physical user mode. 
+
+- For the guest to execute priveleged code, virtual user mode causes a trap to VMM in the real machine. Then the real kernel emulates the action for the virtual kernel and then returns control to the VM
+
+## Binary Translation
+
+- If the guest VCPU is in user mode, guest can run its instructions natively on physical CPU
+- If guest VCPU is in kernel mode, the guest believes it is in kernel mode so VMM examines guest isntructions
+
+    - special instructions are translated to equivalent task to run locally
+    - otherwise normal commands are run natively
+
+![Binary Translation](./assets/binary_translation.png){ height=200px}
