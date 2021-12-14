@@ -157,3 +157,66 @@ Allocation of frames: need enough frames to hold all pages a single instruction 
 - **Buddy System** (allows for easy **coalescing**), **Slab Allocation** (kernel objects stored in **cache** and **slabs**)
 
 Other considerations: **prepaging**, **page size** (smaller page has better memory use but requires more pages), **TLB reach**
+
+Accessing secondary storage involves **transfer rate** and **random access time** (**seek time** and **rotational latency**)
+
+- Computers access secondary storage via **host-attached storage** or **network attached storage**
+
+Data transfer is done on a bus through **host controllers** (computer side) and **device controller** (on storage device)
+
+- Computer places command into host controller that sends is received by device controller to operate on hardware
+
+**HDD Scheduling** optimized by ordering I/O requests: **FCFS, SCAN, C-Scan**
+
+RAID is used to parallelize read/writes and improve data storage reliability through **redundancy** and **striping**
+
+**Device Drivers**: uniform device access interface to I/O subsystem
+
+**Daisy Chain**: device A is connected to device B is connected to device C that is connected to a port
+
+**Memory Mapped I/O**: device control registers are mapped to address space of the processor
+
+- Managed using **data-in**, **data-out**, **status**, **control registers**
+- **Polling**: host and controller handshake when interacting (busy-wait on device status and interrupt notifies CPU of I/O completion)
+
+CPU maintains an **interrupt-request line** that triggers an **interrupt handler routine** on **signal detection**
+
+**Direct Memory Access (DMA)**: host writes a DMG control block into memory with source and destination of transfer
+
+- Rather than **Progammed I/O**: CPU feeds data into controller one byte at a time
+
+2 types of **open-file tables**: **system wide file table** and **per process file table** (points to system wide table)
+
+File type gives operating system hints of how to handle it (system must support code for this)
+
+2 types of file access: **sequential access** and **direct access** (file broken into fixed size **records**)
+
+- Can also use table and index into various blocks/records
+
+Directory structures: **single level**, **2 level** (each user has its own UFD) with entry from (MFD), **tree structured**, **acyclic**
+
+- Acyclic allows directories to share files through **links** that point to another location. System ignores links when traversing
+
+For protection, system will duplicate files and manages **access control list** that specifies access permissions
+
+**Memory Mapped Files**: part of virtual address space is logically associated with file for faster access
+
+- Maps disk blocks to a page in memory. First access causes a page fault, subsequent read/write from memory
+- Multiple processes can map the same file, allowing for data sharing
+
+Ways of allocating files:
+
+- Contiguously: minimizes disk seeks and gives fast access but leads to external fragmentation. Can **defragment** but it is costly
+
+  - Can also use **extents**: chunk of contiguous space linked together
+
+- **Linked**: each file is a linked list of blocks scattered on disk (only useful for sequential seek and also issue of **reliability**)
+
+- **File Allocation Table (FAT)**: beginning of each storage has a table that points to 1st block of files (speeds up random access)
+- **Indexed**: all block pointers stored in an **index block**
+
+  - **Linked Scheme** (links several index blocks) and **Multilevel index** (1st index block points to 2nd level index block)
+
+**Free Space Management**: done using **bit vector** or **linked list** (of free blocks)
+
+**Recovery** ensures system crash doesn't cause inconsistencies: **Log Structured File System** (all metadata/transactions written to logs) or **snapshot** (view of file system at a specific time)
