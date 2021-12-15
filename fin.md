@@ -16,7 +16,7 @@ geometry: margin=0.50cm
 - **Direct communication** requires naming recipient/sender. **Indirect communication** has messages are sent to **mailboxes**
 - Messages might also be buffered
 
-**Threads** share code section, data section, and OS resources (e.g. open files and signals)
+**Threads** share text/code section, data section, and OS resources (e.g. open files and signals)
 
 - Challenges include **identifying task**, **load balancing**, **data splitting**, **data dependency**
 - **Implicit threading** done through **thread pools**, **fork join**, **OpenMP**, **Grand Central Dispatch**
@@ -158,6 +158,8 @@ Allocation of frames: need enough frames to hold all pages a single instruction 
 
 Other considerations: **prepaging**, **page size** (smaller page has better memory use but requires more pages), **TLB reach**
 
+**Magnetic Drive** (HDD) data access is done by moving head. **Flash Drive** (SSD) data access is done electronically
+
 Accessing secondary storage involves **transfer rate** and **random access time** (**seek time** and **rotational latency**)
 
 - Computers access secondary storage via **host-attached storage** or **network attached storage**
@@ -197,7 +199,7 @@ Directory structures: **single level**, **2 level** (each user has its own UFD) 
 
 - Acyclic allows directories to share files through **links** that point to another location. System ignores links when traversing
 
-For protection, system will duplicate files and manages **access control list** that specifies access permissions
+For protection, system will duplicate files and manages **Access Control List (ACL)** that specifies access permissions
 
 **Memory Mapped Files**: part of virtual address space is logically associated with file for faster access
 
@@ -210,6 +212,8 @@ Ways of allocating files:
 
   - Can also use **extents**: chunk of contiguous space linked together
 
+- **Cleaner**: copies in-use files to end of log and defragments the log
+
 - **Linked**: each file is a linked list of blocks scattered on disk (only useful for sequential seek and also issue of **reliability**)
 
 - **File Allocation Table (FAT)**: beginning of each storage has a table that points to 1st block of files (speeds up random access)
@@ -217,6 +221,28 @@ Ways of allocating files:
 
   - **Linked Scheme** (links several index blocks) and **Multilevel index** (1st index block points to 2nd level index block)
 
+**Sticky Bit**: indicates file should be kept in memory after the program terminates
+
 **Free Space Management**: done using **bit vector** or **linked list** (of free blocks)
 
 **Recovery** ensures system crash doesn't cause inconsistencies: **Log Structured File System** (all metadata/transactions written to logs) or **snapshot** (view of file system at a specific time)
+
+**Virtual File System (VFS)**: allows clients to access different types of file systems in a uniform way
+
+**LDT** defines base and limit registers for segments. Since all users are in range $2-4$ GB, they can use same LDT entry
+
+User can't access APIC since it needs protection so user can't change interrupt handling via APIC
+
+Base/Limit registers require a contiguous allocation of memory
+
+**Hard link**: 2 files with same inode. **Symbolic link**: store linked file name
+
+`Alloc_Pageable_Page` needs virtual address to clear page table entry bit to say it's no longer in memory
+
+Even though kernel is not pageable, page fault can still occur in a system call when the kernel page is not in memory
+
+Needed to copy kernel page directory to user page directory since user may need to run in kernel mode for system calls
+
+To make page table pageable, need to allocate page table from pageable memory, and on page fault, check if page table is present
+
+Seek doesn't require disk head moving, only a pointer update
